@@ -9,6 +9,19 @@
 	let id = $page.params.id;
 	let study = $derived(Studies.find(s => s.id === id));
 	
+	let computedStats = $derived(() => {
+		if (!study) return {};
+		let stats = {};
+		study.paths.forEach(p => {
+			if (p.quiz && p.quiz.wrongTags) {
+				p.quiz.wrongTags.forEach(tag => {
+					stats[tag] = (stats[tag] || 0) + 1;
+				});
+			}
+		});
+		return stats;
+	});
+	
 	function goBack() {
 		goto('/private/dash');
 	}
@@ -25,6 +38,12 @@
 					<PathDisplay {path} studyId={id} pathId={index} />
 				{/each}
 			</div>
+			<h2 class="text-2xl font-semibold mb-4 mt-8">Analytics: Tags with Wrong Answers</h2>
+			{#if computedStats && Object.keys(computedStats).length > 0}
+				<pre class="bg-gray-100 p-4 rounded">{JSON.stringify(computedStats, null, 2)}</pre>
+			{:else}
+				<p>No analytics data available yet.</p>
+			{/if}
 		</div>
 	{:else}
 		<p>Study not found.</p>

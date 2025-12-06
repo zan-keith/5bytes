@@ -71,5 +71,5 @@ files
 
     const id = randomUUID();
 
-    return json({ message: 'Study initialized successfully', data: { id, prompt, files, title: aiResponse.title, paths: aiResponse.paths } });
+    return json({ message: 'Study initialized successfully', data: { id, prompt, files, title: aiResponse.title, paths: aiResponse.paths, stats: {} } });
 };

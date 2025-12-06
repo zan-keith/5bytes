@@ -148,9 +148,14 @@
 		if (!path.quiz || !path.quiz.questions || path.quiz.done) return;
 		
 		let score = 0;
+		let wrongTags = [];
+		let wrongQuestions = [];
 		path.quiz.questions.forEach((question, index) => {
 			if (quizAnswers[index] === question.answer) {
 				score += question.grade;
+			} else {
+				wrongTags.push(question.tag);
+				wrongQuestions.push(index + 1); // 1-based
 			}
 		});
 		quizScore = score;
@@ -159,14 +164,27 @@
 		// Mark quiz as done
 		const updatedStudies = Studies.map(s => 
 			s.id === studyId 
-				? { ...s, paths: s.paths.map((p, i) => 
-					i === parseInt(pathId) 
-						? { ...p, quiz: { ...p.quiz, done: true, score } }
-						: p
-				)}
+				? (() => {
+					let newStats = { ...(s.stats || {}) };
+					wrongTags.forEach(tag => {
+						newStats[tag] = (newStats[tag] || 0) + 1;
+					});
+					return { ...s, paths: s.paths.map((p, i) => 
+						i === parseInt(pathId) 
+							? { ...p, quiz: { ...p.quiz, done: true, score, wrongTags, wrongQuestions, questions: p.quiz.questions.map(q => ({...q, graded: true})) } }
+							: p
+					), stats: newStats };
+				})()
 				: s
 		);
 		StudiesStore.set(updatedStudies);
+		
+		// Console log the updated stats
+		const updatedStudy = updatedStudies.find(s => s.id === studyId);
+		if (updatedStudy) {
+			const tagsWithWrongs = Object.entries(updatedStudy.stats).filter(([tag, count]) => count > 0);
+			console.log('Tags with wrong answers:', tagsWithWrongs);
+		}
 	}
 </script>
 
@@ -271,6 +289,9 @@
 						{/if}
 					</div>
 				{/each}
+				{#if isGraded && path.quiz.wrongQuestions && path.quiz.wrongQuestions.length > 0}
+					<p class="mt-4 text-red-600">Wrong questions: {path.quiz.wrongQuestions.join(', ')}</p>
+				{/if}
 			{:else}
 				<p>No quiz available for this path.</p>
 			{/if}

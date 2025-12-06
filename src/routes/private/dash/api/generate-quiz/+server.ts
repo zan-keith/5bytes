@@ -49,6 +49,11 @@ Respond in JSON format: {"title": "Quiz Title", "questions": [...]}` },
 			parsed = { title: 'Quiz', questions: [] };
 		}
 
+		// Add graded property to questions
+		if (parsed.questions) {
+			parsed.questions = parsed.questions.map(q => ({ ...q, graded: false }));
+		}
+
 		return json(parsed);
 	} catch (error) {
 		console.error('Error generating quiz:', error);
