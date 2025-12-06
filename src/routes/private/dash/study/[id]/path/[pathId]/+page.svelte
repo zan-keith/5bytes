@@ -6,6 +6,8 @@
 	import Button from '$lib/components/ui/button/button.svelte';
 	import Badge from '$lib/components/ui/badge/badge.svelte';
 	import Textarea from '$lib/components/ui/textarea/textarea.svelte';
+	import { marked } from 'marked';
+    import Spinner from '$lib/components/ui/spinner/spinner.svelte';
 
 	let Studies = $StudiesStore;
 	let studyId = $page.params.id;
@@ -16,6 +18,50 @@
     console.log("Loaded path:", path);
 	let notes = $state('');
 	let quizAnswers = $state({});
+	let generatingPrework = $state(false);
+	
+	async function generatePrework() {
+		if (!path || path.prework?.md_content || generatingPrework) return;
+		
+		generatingPrework = true;
+		try {
+			const res = await fetch('/private/dash/api/generate-prework/', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					studyId,
+					pathId,
+					pathName: path.name,
+					pathDescription: path.description
+				})
+			});
+			
+			const data = await res.json();
+			if (data.mdContent) {
+				// Update the store
+				const updatedStudies = Studies.map(s => 
+					s.id === studyId 
+						? { ...s, paths: s.paths.map((p, i) => 
+							i === parseInt(pathId) 
+								? { ...p, prework: { ...p.prework, md_content: data.mdContent } }
+								: p
+						)}
+						: s
+				);
+				StudiesStore.set(updatedStudies);
+			}
+		} catch (error) {
+			console.error('Error generating prework:', error);
+		} finally {
+			generatingPrework = false;
+		}
+	}
+	
+	$effect(() => {
+		if (path && !path.prework?.md_content && !generatingPrework) {
+			generatePrework();
+		}
+	});
 	
 	function markDone() {
 		// TODO: update the store
@@ -39,11 +85,25 @@
 		<Button onclick={markDone} class="mb-4">Mark as Done</Button>
 	{/if}
 	
-	<Tabs.Root value="notes" class="w-full">
-		<Tabs.List class="grid w-full grid-cols-2">
+	<Tabs.Root value="prework" class="w-full">
+		<Tabs.List class="grid w-full grid-cols-3">
+			<Tabs.Trigger value="prework">Prework</Tabs.Trigger>
 			<Tabs.Trigger value="notes">Notes</Tabs.Trigger>
 			<Tabs.Trigger value="quiz">Quiz</Tabs.Trigger>
 		</Tabs.List>
+		
+		<Tabs.Content value="prework" class="mt-4">
+			{#if generatingPrework}
+				<div class="flex items-center justify-center p-8">
+					<Spinner />
+					<span class="ml-2">Generating prework content...</span>
+				</div>
+			{:else if path.prework?.md_content}
+				<div class="prose max-w-none">{@html marked.parse(path.prework.md_content)}</div>
+			{:else}
+				<p>No prework available.</p>
+			{/if}
+		</Tabs.Content>
 		
 		<Tabs.Content value="notes" class="mt-4">
 			<Textarea 
