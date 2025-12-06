@@ -135,7 +135,7 @@
 	
 	function markDone() {
 		// TODO: update the store
-		const updatedStudies = $StudiesStore.map(s => 
+		const updatedStudies = $StudiesStore.filter(s => s && s.id).map(s => 
 			s.id === studyId 
 				? { ...s, paths: s.paths.map((p, i) => 
 					i === parseInt(pathId) 
@@ -296,7 +296,23 @@
 					</div>
 				{/each}
 				{#if isGraded && path.quiz.wrongQuestions && path.quiz.wrongQuestions.length > 0}
-					<p class="mt-4 text-red-600">Wrong questions: {path.quiz.wrongQuestions.join(', ')}</p>
+					<div class="mt-6 p-4 bg-red-50 border border-red-200 rounded">
+						<h4 class="font-semibold text-red-800 mb-2">Incorrect Answers:</h4>
+						<ul class="list-disc list-inside text-red-700">
+							{#each path.quiz.wrongQuestions as qNum}
+								<li>
+									Question {qNum}: {path.quiz.questions[qNum - 1].question}
+									{#if path.quiz.questions[qNum - 1].tags && path.quiz.questions[qNum - 1].tags.length > 0}
+										<div class="mt-1">
+											{#each path.quiz.questions[qNum - 1].tags as tag}
+												<span class="inline-block bg-red-200 text-red-900 text-xs px-2 py-1 rounded mr-1">{tag}</span>
+											{/each}
+										</div>
+									{/if}
+								</li>
+							{/each}
+						</ul>
+					</div>
 				{/if}
 			{:else}
 				<p>No quiz available for this path.</p>
