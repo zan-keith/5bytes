@@ -26,7 +26,7 @@ Prework Content: ${preworkMd}
 
 Generate questions that test understanding of the key concepts, with:
 - 5 to 10 questions
-- Each question: question (string), options (array of up to 4 strings), answer (correct option), grade (1-10), type ("multiple-choice")
+- Each question: question (string), options (array of up to 4 strings for multiple-choice), answer (correct option), grade (1-10), type ("multiple-choice"), tags (array of strings with related concepts)
 
 Respond in JSON format: {"title": "Quiz Title", "questions": [...]}` },
 			],

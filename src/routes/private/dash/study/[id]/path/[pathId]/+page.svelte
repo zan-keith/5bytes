@@ -100,7 +100,7 @@
 					s.id === studyId 
 						? { ...s, paths: s.paths.map((p, i) => 
 							i === parseInt(pathId) 
-								? { ...p, quiz: { title: data.title || 'Quiz', questions: data.questions } }
+								? { ...p, quiz: { title: data.title || 'Quiz', questions: data.questions, done: false } }
 								: p
 						)}
 						: s
@@ -127,6 +127,13 @@
 		}
 	});
 	
+	$effect(() => {
+		if (path && path.quiz && path.quiz.done) {
+			isGraded = true;
+			quizScore = path.quiz.score || 0;
+		}
+	});
+	
 	function markDone() {
 		// TODO: update the store
 		path.done = true;
@@ -138,7 +145,7 @@
 	}
 	
 	function gradeQuiz() {
-		if (!path.quiz || !path.quiz.questions) return;
+		if (!path.quiz || !path.quiz.questions || path.quiz.done) return;
 		
 		let score = 0;
 		path.quiz.questions.forEach((question, index) => {
@@ -148,6 +155,18 @@
 		});
 		quizScore = score;
 		isGraded = true;
+		
+		// Mark quiz as done
+		const updatedStudies = Studies.map(s => 
+			s.id === studyId 
+				? { ...s, paths: s.paths.map((p, i) => 
+					i === parseInt(pathId) 
+						? { ...p, quiz: { ...p.quiz, done: true, score } }
+						: p
+				)}
+				: s
+		);
+		StudiesStore.set(updatedStudies);
 	}
 </script>
 
@@ -198,15 +217,23 @@
 				</div>
 			{:else if path.quiz && path.quiz.questions && path.quiz.questions.length > 0}
 				<h3 class="text-xl font-semibold mb-4">{path.quiz.title}</h3>
-				{#if !isGraded}
+				{#if path.quiz.done}
+					<p class="text-lg font-bold mb-4">Quiz Completed - Total Score: {quizScore}</p>
+				{:else if !isGraded}
 					<Button onclick={gradeQuiz} class="mb-4">Grade Quiz</Button>
-				{/if}
-				{#if isGraded}
+				{:else}
 					<p class="text-lg font-bold mb-4">Total Score: {quizScore}</p>
 				{/if}
 				{#each path.quiz.questions as question, qIndex}
 					<div class="mb-6">
 						<p class="font-medium mb-2">{question.question}</p>
+						{#if question.tags && question.tags.length > 0}
+							<div class="mb-2">
+								{#each question.tags as tag}
+									<span class="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded mr-1">{tag}</span>
+								{/each}
+							</div>
+						{/if}
 						{#if question.type === 'multiple-choice' && question.options}
 							<div class="space-y-2">
 								{#each question.options as option, oIndex}
