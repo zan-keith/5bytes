@@ -8,6 +8,7 @@
 
 <svelte:head>
 	<link rel="icon" href={favicon} />
+	<title>5bytes - Learn with AI-Powered Paths</title>
 </svelte:head>
 <Nav />
 {@render children()}

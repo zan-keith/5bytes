@@ -24,18 +24,7 @@
 	let studyId = $page.params.id;
 	let pathId = $page.params.pathId;
 	let study = $derived($StudiesStore.filter(s => s && s.id).find(s => s.id === studyId));
-	let isBranch = $derived(pathId.includes('branch'));
-	let mainIndex = $derived(isBranch ? parseInt(pathId.split('-')[0]) : parseInt(pathId));
-	let branchIndex = $derived(isBranch ? parseInt(pathId.split('-')[2]) : null);
-	let path = $derived(() => {
-		if (!study) return null;
-		if (isBranch) {
-			const mainPath = study.paths[mainIndex];
-			return mainPath?.branches?.[branchIndex] || null;
-		} else {
-			return study.paths[mainIndex] || null;
-		}
-	});
+	let path = $derived(study ? study.paths[parseInt(pathId)] : null);
 	
     console.log("Loaded path:", path);
 	let notes = $state('');
@@ -70,24 +59,14 @@
 				const updatedStudies = $StudiesStore.filter(s => s && s.id).map(s => 
 					s.id === studyId 
 						? { ...s, paths: s.paths.map((p, i) => 
-							i === mainIndex 
-								? isBranch 
-									? { ...p, branches: p.branches.map((b, bi) => 
-										bi === branchIndex 
-											? { ...b, prework: { ...b.prework, md_content: data.mdContent } }
-											: b
-									)}
-									: { ...p, prework: { ...p.prework, md_content: data.mdContent } }
+							i === parseInt(pathId) 
+								? { ...p, prework: { ...p.prework, md_content: data.mdContent } }
 								: p
 						)}
 						: s
 				);
 				StudiesStore.set(updatedStudies);
                 console.log("Updated path with prework:", data.mdContent);
-                hasGeneratedPrework = true;
-                const updatedStudy = $StudiesStore.find(s => s.id === studyId);
-                const updatedPath = isBranch ? updatedStudy.paths[mainIndex].branches[branchIndex] : updatedStudy.paths[mainIndex];
-                console.log("Path after update:", updatedPath.prework.md_content);
 			}
 		} catch (error) {
 			console.error('Error generating prework:', error);
@@ -119,14 +98,8 @@
 				const updatedStudies = $StudiesStore.filter(s => s && s.id).map(s => 
 					s.id === studyId 
 						? { ...s, paths: s.paths.map((p, i) => 
-							i === mainIndex 
-								? isBranch 
-									? { ...p, branches: p.branches.map((b, bi) => 
-										bi === branchIndex 
-											? { ...b, quiz: { title: data.title || 'Quiz', questions: data.questions, done: false } }
-											: b
-									)}
-									: { ...p, quiz: { title: data.title || 'Quiz', questions: data.questions, done: false } }
+							i === parseInt(pathId) 
+								? { ...p, quiz: { title: data.title || 'Quiz', questions: data.questions, done: false } }
 								: p
 						)}
 						: s
@@ -142,7 +115,13 @@
 	}
 	
 	$effect(() => {
-		if (activeTab === 'quiz' && path && (!path.quiz || !path.quiz.questions || path.quiz.questions.length === 0) && !hasGeneratedQuiz && !isBranch) {
+		if (path && !path.prework?.md_content && !hasGeneratedPrework) {
+			generatePrework();
+		}
+	});
+	
+	$effect(() => {
+		if (activeTab === 'quiz' && path && (!path.quiz || !path.quiz.questions || path.quiz.questions.length === 0) && !hasGeneratedQuiz) {
 			generateQuiz();
 		}
 	});
@@ -159,14 +138,8 @@
 		const updatedStudies = $StudiesStore.filter(s => s && s.id).map(s => 
 			s.id === studyId 
 				? { ...s, paths: s.paths.map((p, i) => 
-					i === mainIndex 
-						? isBranch 
-							? { ...p, branches: p.branches.map((b, bi) => 
-								bi === branchIndex 
-									? { ...b, done: true }
-									: b
-							)}
-							: { ...p, done: true }
+					i === parseInt(pathId) 
+						? { ...p, done: true }
 						: p
 				)}
 				: s
@@ -203,14 +176,8 @@
 						newStats[tag] = (newStats[tag] || 0) + 1;
 					});
 					return { ...s, paths: s.paths.map((p, i) => 
-						i === mainIndex 
-							? isBranch 
-								? { ...p, branches: p.branches.map((b, bi) => 
-									bi === branchIndex 
-										? { ...b, quiz: { ...b.quiz, done: true, score, wrongTags, wrongQuestions, questions: b.quiz.questions.map((q, idx) => ({...q, grade: quizAnswers[idx] === q.answer ? 'correct' : 'incorrect'})) } }
-										: b
-								)}
-								: { ...p, quiz: { ...p.quiz, done: true, score, wrongTags, wrongQuestions, questions: p.quiz.questions.map((q, idx) => ({...q, grade: quizAnswers[idx] === q.answer ? 'correct' : 'incorrect'})) } }
+						i === parseInt(pathId) 
+							? { ...p, quiz: { ...p.quiz, done: true, score, wrongTags, wrongQuestions, questions: p.quiz.questions.map((q, idx) => ({...q, grade: quizAnswers[idx] === q.answer ? 'correct' : 'incorrect'})) } }
 							: p
 					), stats: newStats };
 				})()
@@ -254,7 +221,7 @@
 			{:else if path.prework?.md_content}
 				<div class="prose max-w-none">{@html marked.parse(path.prework.md_content)}</div>
 			{:else}
-				<Button onclick={generatePrework} disabled={generatingPrework}>Generate Prework</Button>
+				<p>No prework available.</p>
 			{/if}
 		</Tabs.Content>
 		
