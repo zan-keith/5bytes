@@ -9,19 +9,30 @@ const openai = new OpenAI({
 	apiKey: OPENAI_API_KEY,
 });
 
+
+
 const openai_req = async ({prompt, files}) => {
 	try {
 		const completion = await openai.chat.completions.create({
 			model: 'gpt-3.5-turbo',
 			messages: [
-				{ role: 'system', content: 'You are a helpful assistant for study planning. Generate structured study plans in JSON format.' },
+				{ role: 'system', content: 'You are a helpful assistant for study planning. Generate detailed, structured study plans in JSON format. Focus on major milestones with specific, actionable steps.' },
 				{ role: 'user', content: `Based on the following prompt: "${prompt}", generate a study plan with:
 - A study title
-- An array of learning paths, where each path has a name and description
+- An array of many learning paths, breaking down the subject into very basic, minute-level steps. Generate as many small, specific paths as possible to cover the topic comprehensively.
+- Each path should have:
+  - name: string (very specific and basic step)
+  - description: string (brief explanation of this tiny step)
+  - branches: optional array of sub-paths (for even finer breakdown if needed)
+  - done: boolean (set to false)
+  - prework: object (leave empty for now: {title: "", links: [], md_content: ""})
+  - quiz: object (leave empty for now: {title: "", questions: []})
 
-Respond in JSON format with keys: "title" and "paths" (array of objects with "name" and "description").` },
+Focus on creating numerous small paths rather than few large ones. Make each path represent a minute, actionable step.
+
+Respond in JSON format with keys: "title" and "paths".` },
 			],
-			max_tokens: 500,
+			max_tokens: 2000,
 		});
 
 		const content = completion.choices[0]?.message?.content?.trim() || '{}';

@@ -1,5 +1,4 @@
 <script>
-    import StudiesSection from "$lib/components/custom/StudiesSection.svelte";
     import StudyTile from "$lib/components/custom/StudyTile.svelte";
 
     let prompt = $state("");
