@@ -7,6 +7,18 @@
 	import Badge from '$lib/components/ui/badge/badge.svelte';
 	import Textarea from '$lib/components/ui/textarea/textarea.svelte';
 	import { marked } from 'marked';
+	import katex from 'marked-katex-extension';
+	import 'katex/dist/katex.min.css';
+
+	marked.use(katex({
+		throwOnError: false,
+		displayMode: true,
+		leqno: false,
+		fleqn: false,
+		macros: {},
+		colorIsTextColor: false,
+		strict: false
+	}));
     import Spinner from '$lib/components/ui/spinner/spinner.svelte';
 
 	let Studies = $StudiesStore;
@@ -19,6 +31,12 @@
 	let notes = $state('');
 	let quizAnswers = $state({});
 	let generatingPrework = $state(false);
+	let hasGeneratedPrework = $state(false);
+	let generatingQuiz = $state(false);
+	let hasGeneratedQuiz = $state(false);
+	let activeTab = $state('prework');
+	let quizScore = $state(0);
+	let isGraded = $state(false);
 	
 	async function generatePrework() {
 		if (!path || path.prework?.md_content || generatingPrework) return;
@@ -49,6 +67,7 @@
 						: s
 				);
 				StudiesStore.set(updatedStudies);
+                console.log("Updated path with prework:", data.mdContent);
 			}
 		} catch (error) {
 			console.error('Error generating prework:', error);
@@ -57,9 +76,54 @@
 		}
 	}
 	
+	async function generateQuiz() {
+		if (!path || (path.quiz?.questions && path.quiz.questions.length > 0) || generatingQuiz || hasGeneratedQuiz) return;
+		
+		generatingQuiz = true;
+		try {
+			const res = await fetch('/private/dash/api/generate-quiz/', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					studyId,
+					pathId,
+					pathName: path.name,
+					pathDescription: path.description,
+					preworkMd: path.prework?.md_content || ''
+				})
+			});
+			
+			const data = await res.json();
+			if (data.questions && data.questions.length > 0) {
+				// Update the store
+				const updatedStudies = Studies.map(s => 
+					s.id === studyId 
+						? { ...s, paths: s.paths.map((p, i) => 
+							i === parseInt(pathId) 
+								? { ...p, quiz: { title: data.title || 'Quiz', questions: data.questions } }
+								: p
+						)}
+						: s
+				);
+				StudiesStore.set(updatedStudies);
+				hasGeneratedQuiz = true;
+			}
+		} catch (error) {
+			console.error('Error generating quiz:', error);
+		} finally {
+			generatingQuiz = false;
+		}
+	}
+	
 	$effect(() => {
-		if (path && !path.prework?.md_content && !generatingPrework) {
+		if (path && !path.prework?.md_content && !hasGeneratedPrework) {
 			generatePrework();
+		}
+	});
+	
+	$effect(() => {
+		if (activeTab === 'quiz' && path && (!path.quiz || !path.quiz.questions || path.quiz.questions.length === 0) && !hasGeneratedQuiz) {
+			generateQuiz();
 		}
 	});
 	
@@ -71,6 +135,19 @@
 	
 	function goBack() {
 		goto(`/private/dash/study/${studyId}`);
+	}
+	
+	function gradeQuiz() {
+		if (!path.quiz || !path.quiz.questions) return;
+		
+		let score = 0;
+		path.quiz.questions.forEach((question, index) => {
+			if (quizAnswers[index] === question.answer) {
+				score += question.grade;
+			}
+		});
+		quizScore = score;
+		isGraded = true;
 	}
 </script>
 
@@ -85,7 +162,7 @@
 		<Button onclick={markDone} class="mb-4">Mark as Done</Button>
 	{/if}
 	
-	<Tabs.Root value="prework" class="w-full">
+	<Tabs.Root bind:value={activeTab} class="w-full">
 		<Tabs.List class="grid w-full grid-cols-3">
 			<Tabs.Trigger value="prework">Prework</Tabs.Trigger>
 			<Tabs.Trigger value="notes">Notes</Tabs.Trigger>
@@ -114,21 +191,33 @@
 		</Tabs.Content>
 		
 		<Tabs.Content value="quiz" class="mt-4">
-			{#if path.quiz && path.quiz.questions && path.quiz.questions.length > 0}
+			{#if generatingQuiz}
+				<div class="flex items-center justify-center p-8">
+					<Spinner />
+					<span class="ml-2">Generating quiz...</span>
+				</div>
+			{:else if path.quiz && path.quiz.questions && path.quiz.questions.length > 0}
 				<h3 class="text-xl font-semibold mb-4">{path.quiz.title}</h3>
+				{#if !isGraded}
+					<Button onclick={gradeQuiz} class="mb-4">Grade Quiz</Button>
+				{/if}
+				{#if isGraded}
+					<p class="text-lg font-bold mb-4">Total Score: {quizScore}</p>
+				{/if}
 				{#each path.quiz.questions as question, qIndex}
 					<div class="mb-6">
 						<p class="font-medium mb-2">{question.question}</p>
 						{#if question.type === 'multiple-choice' && question.options}
 							<div class="space-y-2">
 								{#each question.options as option, oIndex}
-									<label class="flex items-center">
+									<label class="flex items-center p-2 rounded {isGraded && option === question.answer ? 'bg-green-100' : ''} {isGraded && option === quizAnswers[qIndex] && option !== question.answer ? 'bg-red-100' : ''}">
 										<input 
 											type="radio" 
 											name="q{qIndex}" 
 											value={option} 
 											bind:group={quizAnswers[qIndex]}
 											class="mr-2"
+											disabled={isGraded}
 										/>
 										{option}
 									</label>
@@ -136,12 +225,12 @@
 							</div>
 						{:else if question.type === 'true-false'}
 							<div class="space-y-2">
-								<label class="flex items-center">
-									<input type="radio" name="q{qIndex}" value="true" bind:group={quizAnswers[qIndex]} class="mr-2" />
+								<label class="flex items-center p-2 rounded {isGraded && 'true' === question.answer ? 'bg-green-100' : ''} {isGraded && 'true' === quizAnswers[qIndex] && 'true' !== question.answer ? 'bg-red-100' : ''}">
+									<input type="radio" name="q{qIndex}" value="true" bind:group={quizAnswers[qIndex]} class="mr-2" disabled={isGraded} />
 									True
 								</label>
-								<label class="flex items-center">
-									<input type="radio" name="q{qIndex}" value="false" bind:group={quizAnswers[qIndex]} class="mr-2" />
+								<label class="flex items-center p-2 rounded {isGraded && 'false' === question.answer ? 'bg-green-100' : ''} {isGraded && 'false' === quizAnswers[qIndex] && 'false' !== question.answer ? 'bg-red-100' : ''}">
+									<input type="radio" name="q{qIndex}" value="false" bind:group={quizAnswers[qIndex]} class="mr-2" disabled={isGraded} />
 									False
 								</label>
 							</div>
@@ -150,12 +239,8 @@
 								placeholder="Your answer..." 
 								bind:value={quizAnswers[qIndex]} 
 								class="w-full"
+								disabled={isGraded}
 							/>
-						{/if}
-						{#if quizAnswers[qIndex]}
-							<p class="text-sm text-gray-600 mt-2">
-								Correct answer: {question.answer} (Grade: {question.grade})
-							</p>
 						{/if}
 					</div>
 				{/each}

@@ -29,6 +29,7 @@ Provide comprehensive prework material including:
 - Practice exercises
 - Important notes
 
+Use LaTeX for all mathematical expressions and equations (e.g., $x^2$ for inline, $$ \frac{d}{dx} x^2 = 2x $$ for display).
 Format the response as pure markdown text.` },
 			],
 			max_tokens: 1000,
