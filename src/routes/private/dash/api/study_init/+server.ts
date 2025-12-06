@@ -1,34 +1,44 @@
 import { PUBLIC_SUPABASE_URL } from '$env/static/public';
 import { json, type RequestHandler } from '@sveltejs/kit';
+import { randomUUID } from 'crypto';
 
 import { OPENAI_API_KEY } from '$env/static/private';
 import { OpenAI } from 'openai';
-import type { PageServerLoad } from './$types';
 
 const openai = new OpenAI({
 	apiKey: OPENAI_API_KEY,
 });
 
-export const load: PageServerLoad = async () => {
+const openai_req = async ({prompt, files}) => {
 	try {
 		const completion = await openai.chat.completions.create({
 			model: 'gpt-3.5-turbo',
 			messages: [
-				{ role: 'system', content: 'You are a helpful assistant for study planning.' },
-				{ role: 'user', content: 'Generate a short daily study tip.' },
+				{ role: 'system', content: 'You are a helpful assistant for study planning. Generate structured study plans in JSON format.' },
+				{ role: 'user', content: `Based on the following prompt: "${prompt}", generate a study plan with:
+- A study title
+- An array of learning paths, where each path has a name and description
+
+Respond in JSON format with keys: "title" and "paths" (array of objects with "name" and "description").` },
 			],
-			max_tokens: 100,
+			max_tokens: 500,
 		});
 
-		const tip = completion.choices[0]?.message?.content?.trim() || 'Keep studying regularly!';
+		const content = completion.choices[0]?.message?.content?.trim() || '{}';
+		let parsed;
+		try {
+			parsed = JSON.parse(content);
+		} catch (e) {
+			console.error('Failed to parse AI response as JSON:', content);
+			parsed = { title: 'Study Plan', paths: [] };
+		}
 
-		return {
-			tip,
-		};
+		return parsed;
 	} catch (error) {
 		console.error('Error fetching from OpenAI:', error);
 		return {
-			tip: 'Unable to load study tip at the moment.',
+			title: 'Study Plan',
+			paths: [],
 		};
 	}
 };
@@ -44,7 +54,11 @@ prompt,
 files
     } = await request.json();
 
+    const aiResponse = await openai_req({ prompt, files });
 
+    console.log('AI Response:', aiResponse);
 
-    return json({ message: 'Study initialized successfully', data: { prompt, files } });
+    const id = randomUUID();
+
+    return json({ message: 'Study initialized successfully', data: { id, prompt, files, title: aiResponse.title, paths: aiResponse.paths } });
 };

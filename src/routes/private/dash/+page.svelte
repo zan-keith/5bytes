@@ -1,8 +1,13 @@
 <script>
+    import StudiesSection from "$lib/components/custom/StudiesSection.svelte";
+    import StudyTile from "$lib/components/custom/StudyTile.svelte";
+
     let prompt = $state("");
     let files = $state([]);
       import * as Item from "$lib/components/ui/item/index.js";
   import { Spinner } from "$lib/components/ui/spinner/index.js";
+  console.log("StudiesStore:", $StudiesStore);
+    import { StudiesStore } from "$lib/store";
     let loading = $state(false);
     async function handleSubmit() {
         loading = true;
@@ -16,6 +21,12 @@
                 "Content-Type": "application/json"
             }
         });
+
+        let data = await res.json();
+        console.log("Response:", data.data);
+
+        let studies_local=$StudiesStore;
+        StudiesStore.set([...studies_local, data.data]);
 
         loading = false
     }
@@ -65,5 +76,26 @@
   </Item.Root>
 </div>
         {/if}
+
+<div class="w-full grid">
+
+</div>
+<section class="py-12 md:py-20">
+  <div class="mx-auto max-w-5xl space-y-8 px-6 md:space-y-16">
+    <div
+      class="relative z-10 mx-auto max-w-xl space-y-6 text-center md:space-y-12"
+    >
+    <div
+      class="relative mx-auto grid max-w-4xl divide-x divide-y border *:p-12 sm:grid-cols-2 lg:grid-cols-3"
+    >
+{#each $StudiesStore as study}
+    <StudyTile {study} />
+{/each}
     </div>
+  </div>
+</section>
+
+    </div>
+
+
 </div>
