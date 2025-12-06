@@ -7,7 +7,7 @@
 
 <nav class="flex items-center justify-between p-4 border-b bg-background">
 	<div class="flex items-center space-x-2">
-		<h1 class="text-xl font-bold">5bytes</h1>
+		<a href="/" class="text-xl font-bold">5bytes</a>
 	</div>
 
 	<!-- Desktop Menu -->
