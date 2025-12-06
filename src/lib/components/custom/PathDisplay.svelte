@@ -1,8 +1,95 @@
 <script>
     import Badge from "../ui/badge/badge.svelte";
     import Button from "../ui/button/button.svelte";
+    import { StudiesStore } from "$lib/store.js";
 
-	let { path, pathId, studyId } = $props();
+    let { path, pathId, studyId } = $props();
+
+    let incorrectTagMap = $derived(() => {
+        if (
+            path?.quiz?.done !== true ||
+            !Array.isArray(path?.quiz?.questions) ||
+            !Array.isArray(path.quiz.wrongQuestions) ||
+            path.quiz.wrongQuestions.length === 0
+        ) {
+            return {};
+        }
+        return path.quiz.questions.reduce((acc, question, idx) => {
+            if (path.quiz.wrongQuestions.includes(idx + 1) && Array.isArray(question.tags)) {
+                question.tags.forEach((tag) => {
+                    if (!tag) return;
+                    acc[tag] = (acc[tag] || 0) + 1;
+                });
+            }
+            return acc;
+        }, {});
+    });
+
+    let hasIncorrectTags = $derived(() => Object.keys(incorrectTagMap).length > 0);
+
+    let generatingBranches = $state(false);
+    let branchError = $state('');
+    let branchSuccess = $state('');
+
+    async function branchFromIncorrectTags(event) {
+        event?.preventDefault();
+        event?.stopPropagation();
+        branchError = '';
+        branchSuccess = '';
+        if (!hasIncorrectTags || generatingBranches) {
+            return;
+        }
+        generatingBranches = true;
+        try {
+            const tags = Object.keys(incorrectTagMap);
+            const response = await fetch('/private/dash/api/generate-branches/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    studyId,
+                    pathId: Number(pathId),
+                    tags,
+                    pathName: path?.name,
+                    pathDescription: path?.description
+                })
+            });
+            if (!response.ok) {
+                throw new Error(`Failed to generate branches: ${response.status}`);
+            }
+            const data = await response.json();
+            const newBranches = Array.isArray(data?.branches) ? data.branches.filter(Boolean) : [];
+            if (newBranches.length === 0) {
+                branchError = 'No remediation branches returned.';
+                return;
+            }
+            const updatedStudies = $StudiesStore.filter((s) => s && s.id).map((s) =>
+                s.id === studyId
+                    ? {
+                        ...s,
+                        paths: s.paths.map((p, idx) => {
+                            if (idx === Number(pathId)) {
+                                const existingBranches = Array.isArray(p.branches) ? p.branches : [];
+                                return {
+                                    ...p,
+                                    branches: [...existingBranches, ...newBranches]
+                                };
+                            }
+                            return p;
+                        })
+                    }
+                    : s
+            );
+            StudiesStore.set(updatedStudies);
+            branchSuccess = `${newBranches.length} new ${newBranches.length === 1 ? 'branch' : 'branches'} added.`;
+        } catch (error) {
+            console.error('Error generating branches:', error);
+            branchError = 'Failed to create remediation branch.';
+        } finally {
+            generatingBranches = false;
+        }
+    }
 </script>
 
 <a href="/private/dash/study/{studyId}/path/{pathId}" class="block border rounded-lg p-4 hover:bg-gray-50 transition-colors {path.done ? 'bg-green-50 border-green-200' : ''}">
@@ -12,22 +99,54 @@
     {#if path.prework && path.prework.title}
         <p class="text-sm text-gray-500 mt-2">Prework: {path.prework.title}</p>
     {/if}
-    {#if path.quiz && path.quiz.done && path.quiz.wrongQuestions && path.quiz.wrongQuestions.length > 0}
-        {@const tagMap = path.quiz.questions.reduce((acc, q, idx) => {
-            if (path.quiz.wrongQuestions.includes(idx + 1) && q.tags) {
-                q.tags.forEach(tag => acc[tag] = (acc[tag] || 0) + 1);
-            }
-            return acc;
-        }, {})}
-        {#if Object.keys(tagMap).length > 1}
+    {#if hasIncorrectTags}
         <div class="mt-2 p-2 bg-red-50 border border-red-200 rounded">
             <p class="text-sm font-medium text-red-800">Incorrect Tags:</p>
             <div class="flex flex-wrap gap-1 mt-1">
-                {#each Object.entries(tagMap) as [tag, count]}
+                {#each Object.entries(incorrectTagMap) as [tag, count]}
                     <span class="inline-block bg-red-200 text-red-900 text-xs px-2 py-1 rounded">{tag} ({count})</span>
                 {/each}
             </div>
+            <Button
+                variant="outline"
+                size="sm"
+                class="mt-2"
+                onclick={branchFromIncorrectTags}
+                disabled={generatingBranches}
+            >
+                {generatingBranches ? 'Generating...' : 'Generate remediation path'}
+            </Button>
+            {#if branchError}
+                <p class="text-xs text-red-700 mt-1">{branchError}</p>
+            {/if}
+            {#if branchSuccess}
+                <p class="text-xs text-green-700 mt-1">{branchSuccess}</p>
+            {/if}
         </div>
-        {/if}
     {/if}
 </a>
+
+{#if path.branches && path.branches.length > 0}
+    <div class="mt-4 ml-4 border-l-2 border-gray-300 pl-4">
+        <h4 class="text-lg font-medium mb-2">Branches:</h4>
+        {#each path.branches as branch, branchIndex}
+            <div class="block border rounded-lg p-3 mb-2 bg-gray-50 hover:bg-gray-100 transition-colors {branch.done ? 'bg-green-50 border-green-200' : ''}">
+                <h5 class="text-md font-medium">{branch.name}</h5>
+                <p class="text-gray-600 text-sm mb-1">{branch.description}</p>
+                <p class="text-xs text-gray-500">Status: <Badge variant={branch.done ? 'default' : 'outline'}>{branch.done ? 'Completed' : 'Pending'}</Badge></p>
+                {#if branch.branches && branch.branches.length > 0}
+                    <div class="mt-2 ml-4 border-l-2 border-gray-200 pl-4">
+                        <h6 class="text-sm font-medium mb-1">Sub-branches:</h6>
+                        {#each branch.branches as subBranch, subIndex}
+                            <div class="block border rounded p-2 mb-1 bg-white hover:bg-gray-50 transition-colors {subBranch.done ? 'bg-green-50 border-green-200' : ''}">
+                                <h6 class="text-sm font-medium">{subBranch.name}</h6>
+                                <p class="text-gray-500 text-xs">{subBranch.description}</p>
+                                <p class="text-xs text-gray-400">Status: <Badge variant={subBranch.done ? 'default' : 'outline'} size="sm">{subBranch.done ? 'Completed' : 'Pending'}</Badge></p>
+                            </div>
+                        {/each}
+                    </div>
+                {/if}
+            </div>
+        {/each}
+    </div>
+{/if}
