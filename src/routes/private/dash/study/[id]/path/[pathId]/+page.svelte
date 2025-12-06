@@ -23,7 +23,7 @@
 
 	let studyId = $page.params.id;
 	let pathId = $page.params.pathId;
-	let study = $derived($StudiesStore.find(s => s.id === studyId));
+	let study = $derived($StudiesStore.filter(s => s && s.id).find(s => s.id === studyId));
 	let path = $derived(study ? study.paths[parseInt(pathId)] : null);
 	
     console.log("Loaded path:", path);
@@ -56,7 +56,7 @@
 			const data = await res.json();
 			if (data.mdContent) {
 				// Update the store
-				const updatedStudies = $StudiesStore.map(s => 
+				const updatedStudies = $StudiesStore.filter(s => s && s.id).map(s => 
 					s.id === studyId 
 						? { ...s, paths: s.paths.map((p, i) => 
 							i === parseInt(pathId) 
@@ -95,7 +95,7 @@
 			const data = await res.json();
 			if (data.questions && data.questions.length > 0) {
 				// Update the store
-				const updatedStudies = $StudiesStore.map(s => 
+				const updatedStudies = $StudiesStore.filter(s => s && s.id).map(s => 
 					s.id === studyId 
 						? { ...s, paths: s.paths.map((p, i) => 
 							i === parseInt(pathId) 
@@ -168,7 +168,7 @@
 		quizScore = score;
 		
 		// Mark quiz as done
-		const updatedStudies = $StudiesStore.map(s => 
+		const updatedStudies = $StudiesStore.filter(s => s && s.id).map(s => 
 			s.id === studyId 
 				? (() => {
 					let newStats = { ...(s.stats || {}) };

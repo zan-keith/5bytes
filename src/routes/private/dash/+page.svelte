@@ -14,15 +14,15 @@
         console.log("Prompt:", prompt);
         console.log("Files:", files);
 
-        let formData = new FormData();
-        formData.append('prompt', prompt);
-        for (let file of files || []) {
-            formData.append('files', file);
-        }
-
-        let res = await fetch("dash/api/study_init/", {
+        
+        let res = await fetch("/private/dash/api/study_init/", {
             method: "POST",
-            body: formData
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                prompt,
+            })
         });
 
         let data = await res.json();
@@ -110,7 +110,7 @@
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {#each $StudiesStore as study}
+        {#each $StudiesStore.filter(s => s && s.id) as study}
           <StudyTile {study} />
         {/each}
       </div>

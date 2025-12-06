@@ -6,6 +6,7 @@
     console.log("StudyTile study:", study);
 </script>
 
+{#if study && study.id}
 <a href="/private/dash/study/{study.id}" class="space-y-2 ">
 <div class="flex items-center gap-2 ">
     <Settings_2 class="size-4" />
@@ -16,3 +17,4 @@
     {study.paths?.length || 0} learning paths
 </Badge>
 </a>
+{/if}

@@ -7,7 +7,7 @@
     
 	let Studies = $StudiesStore;
 	let id = $page.params.id;
-	let study = $derived(Studies.find(s => s.id === id));
+	let study = $derived(Studies.filter(s => s && s.id).find(s => s.id === id));
 	
 	let computedStats = $derived(() => {
 		if (!study) return {};

@@ -19,16 +19,16 @@ const openai_req = async ({prompt, files}) => {
 				{ role: 'system', content: 'You are a helpful assistant for study planning. Generate detailed, structured study plans in JSON format. Focus on major milestones with specific, actionable steps.' },
 				{ role: 'user', content: `Based on the following prompt: "${prompt}", generate a study plan with:
 - A study title
-- An array of many learning paths, breaking down the subject into very basic, minute-level steps. Generate as many small, specific paths as possible to cover the topic comprehensively.
-- Each path should have:
-  - name: string (very specific and basic step)
-  - description: string (brief explanation of this tiny step)
-  - branches: optional array of sub-paths (for even finer breakdown if needed)
+- An array of learning paths, each representing a major milestone. Each path should have:
+  - name: string (specific and actionable)
+  - description: string (detailed explanation of what this milestone covers)
+  - branches: optional array of sub-paths (for breaking down complex milestones)
   - done: boolean (set to false)
-  - prework: object (leave empty for now: {title: "", links: [], md_content: ""})
-  - quiz: object (leave empty for now: {title: "", questions: []})
+  - prework: object with title (string), links (array of strings), md_content (string with markdown content for preparation)
+  - quiz: object with title (string), questions (array of objects with question, options (array for multiple-choice), 
+  answer, grade (number 1-10), type ("multiple-choice", "true-false", or "short-answer"))
 
-Focus on creating numerous small paths rather than few large ones. Make each path represent a minute, actionable step.
+Make paths very specific, with steps well broken down but only for major milestones. Ensure the plan is comprehensive yet focused on key learning objectives.
 
 Respond in JSON format with keys: "title" and "paths".` },
 			],
@@ -71,5 +71,5 @@ files
 
     const id = randomUUID();
 
-    return json({ message: 'Study initialized successfully', data: { id, prompt, files, title: aiResponse.title, paths: aiResponse.paths, stats: {} } });
+    return json({ message: 'Study initialized successfully', data: { id, prompt, files, title: aiResponse.title, paths: aiResponse.paths } });
 };
