@@ -19,14 +19,13 @@ const openai_req = async ({prompt, files}) => {
 				{ role: 'system', content: 'You are a helpful assistant for study planning. Generate detailed, structured study plans in JSON format. Focus on major milestones with specific, actionable steps.' },
 				{ role: 'user', content: `Based on the following prompt: "${prompt}", generate a study plan with:
 - A study title
-- An array of learning paths, each representing a major milestone. Each path should have:
+- An array of atleast 5 learning paths, each representing a major milestone. Each path should have:
   - name: string (specific and actionable)
   - description: string (detailed explanation of what this milestone covers)
-  - branches: optional array of sub-paths (for breaking down complex milestones)
+  - branches: empty array [] (to be filled later)
   - done: boolean (set to false)
-  - prework: object with title (string), links (array of strings), md_content (string with markdown content for preparation)
-  - quiz: object with title (string), questions (array of objects with question, options (array for multiple-choice), 
-  answer, grade (number 1-10), type ("multiple-choice", "true-false", or "short-answer"))
+  - prework: empty object {} (to be filled later)
+  - quiz: empty object {} (to be filled later)
 
 Make paths very specific, with steps well broken down but only for major milestones. Ensure the plan is comprehensive yet focused on key learning objectives.
 
@@ -38,7 +37,13 @@ Respond in JSON format with keys: "title" and "paths".` },
 		const content = completion.choices[0]?.message?.content?.trim() || '{}';
 		let parsed;
 		try {
-			parsed = JSON.parse(content);
+			let jsonString = content;
+			// Extract JSON if wrapped in code blocks
+			const jsonMatch = content.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+			if (jsonMatch) {
+				jsonString = jsonMatch[1];
+			}
+			parsed = JSON.parse(jsonString);
 		} catch (e) {
 			console.error('Failed to parse AI response as JSON:', content);
 			parsed = { title: 'Study Plan', paths: [] };

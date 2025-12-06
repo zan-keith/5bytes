@@ -5,27 +5,41 @@
 
     let { path, pathId, studyId } = $props();
 
-    let incorrectTagMap = $derived(() => {
-        if (
-            path?.quiz?.done !== true ||
-            !Array.isArray(path?.quiz?.questions) ||
-            !Array.isArray(path.quiz.wrongQuestions) ||
-            path.quiz.wrongQuestions.length === 0
-        ) {
-            return {};
-        }
-        return path.quiz.questions.reduce((acc, question, idx) => {
-            if (path.quiz.wrongQuestions.includes(idx + 1) && Array.isArray(question.tags)) {
-                question.tags.forEach((tag) => {
-                    if (!tag) return;
-                    acc[tag] = (acc[tag] || 0) + 1;
-                });
-            }
-            return acc;
-        }, {});
+    let isQuizGraded = $derived(() => {
+        const doneValue = path?.quiz?.done;
+        return doneValue === true || doneValue === 'true';
     });
 
-    let hasIncorrectTags = $derived(() => Object.keys(incorrectTagMap).length > 0);
+    let incorrectTagMap = $derived(() => {
+        if (!isQuizGraded) {
+            return {};
+        }
+        const counts = {};
+        if (Array.isArray(path?.quiz?.wrongTags)) {
+            path.quiz.wrongTags.forEach((tag) => {
+                if (!tag) return;
+                counts[tag] = (counts[tag] || 0) + 1;
+            });
+        }
+        if (Object.keys(counts).length === 0 && Array.isArray(path?.quiz?.wrongQuestions) && Array.isArray(path?.quiz?.questions)) {
+            path.quiz.questions.forEach((question, idx) => {
+                if (!path.quiz.wrongQuestions.includes(idx + 1)) {
+                    return;
+                }
+                if (Array.isArray(question.tags)) {
+                    question.tags.forEach((tag) => {
+                        if (!tag) return;
+                        counts[tag] = (counts[tag] || 0) + 1;
+                    });
+                } else if (question.tag) {
+                    counts[question.tag] = (counts[question.tag] || 0) + 1;
+                }
+            });
+        }
+        return counts;
+    });
+
+    let hasIncorrectTags = $derived(() => isQuizGraded && Object.keys(incorrectTagMap).length > 0);
 
     let generatingBranches = $state(false);
     let branchError = $state('');
@@ -98,31 +112,6 @@
 	<p class="text-sm text-gray-500">Status: <Badge variant={path.done ? 'default' : 'outline'}>{path.done ? 'Completed' : 'Pending'}</Badge></p>
     {#if path.prework && path.prework.title}
         <p class="text-sm text-gray-500 mt-2">Prework: {path.prework.title}</p>
-    {/if}
-    {#if hasIncorrectTags}
-        <div class="mt-2 p-2 bg-red-50 border border-red-200 rounded">
-            <p class="text-sm font-medium text-red-800">Incorrect Tags:</p>
-            <div class="flex flex-wrap gap-1 mt-1">
-                {#each Object.entries(incorrectTagMap) as [tag, count]}
-                    <span class="inline-block bg-red-200 text-red-900 text-xs px-2 py-1 rounded">{tag} ({count})</span>
-                {/each}
-            </div>
-            <Button
-                variant="outline"
-                size="sm"
-                class="mt-2"
-                onclick={branchFromIncorrectTags}
-                disabled={generatingBranches}
-            >
-                {generatingBranches ? 'Generating...' : 'Generate remediation path'}
-            </Button>
-            {#if branchError}
-                <p class="text-xs text-red-700 mt-1">{branchError}</p>
-            {/if}
-            {#if branchSuccess}
-                <p class="text-xs text-green-700 mt-1">{branchSuccess}</p>
-            {/if}
-        </div>
     {/if}
 </a>
 
