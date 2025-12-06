@@ -49,9 +49,9 @@ Respond in JSON format: {"title": "Quiz Title", "questions": [...]}` },
 			parsed = { title: 'Quiz', questions: [] };
 		}
 
-		// Add graded property to questions
+		// Add grade property to questions
 		if (parsed.questions) {
-			parsed.questions = parsed.questions.map(q => ({ ...q, graded: false }));
+			parsed.questions = parsed.questions.map(q => ({ ...q, grade: null }));
 		}
 
 		return json(parsed);

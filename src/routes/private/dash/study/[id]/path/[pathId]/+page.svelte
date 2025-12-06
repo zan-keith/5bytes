@@ -21,10 +21,9 @@
 	}));
     import Spinner from '$lib/components/ui/spinner/spinner.svelte';
 
-	let Studies = $StudiesStore;
 	let studyId = $page.params.id;
 	let pathId = $page.params.pathId;
-	let study = $derived(Studies.find(s => s.id === studyId));
+	let study = $derived($StudiesStore.find(s => s.id === studyId));
 	let path = $derived(study ? study.paths[parseInt(pathId)] : null);
 	
     console.log("Loaded path:", path);
@@ -57,7 +56,7 @@
 			const data = await res.json();
 			if (data.mdContent) {
 				// Update the store
-				const updatedStudies = Studies.map(s => 
+				const updatedStudies = $StudiesStore.map(s => 
 					s.id === studyId 
 						? { ...s, paths: s.paths.map((p, i) => 
 							i === parseInt(pathId) 
@@ -96,7 +95,7 @@
 			const data = await res.json();
 			if (data.questions && data.questions.length > 0) {
 				// Update the store
-				const updatedStudies = Studies.map(s => 
+				const updatedStudies = $StudiesStore.map(s => 
 					s.id === studyId 
 						? { ...s, paths: s.paths.map((p, i) => 
 							i === parseInt(pathId) 
@@ -136,8 +135,16 @@
 	
 	function markDone() {
 		// TODO: update the store
-		path.done = true;
-		StudiesStore.set(Studies);
+		const updatedStudies = $StudiesStore.map(s => 
+			s.id === studyId 
+				? { ...s, paths: s.paths.map((p, i) => 
+					i === parseInt(pathId) 
+						? { ...p, done: true }
+						: p
+				)}
+				: s
+		);
+		StudiesStore.set(updatedStudies);
 	}
 	
 	function goBack() {
@@ -159,10 +166,9 @@
 			}
 		});
 		quizScore = score;
-		isGraded = true;
 		
 		// Mark quiz as done
-		const updatedStudies = Studies.map(s => 
+		const updatedStudies = $StudiesStore.map(s => 
 			s.id === studyId 
 				? (() => {
 					let newStats = { ...(s.stats || {}) };
@@ -171,7 +177,7 @@
 					});
 					return { ...s, paths: s.paths.map((p, i) => 
 						i === parseInt(pathId) 
-							? { ...p, quiz: { ...p.quiz, done: true, score, wrongTags, wrongQuestions, questions: p.quiz.questions.map(q => ({...q, graded: true})) } }
+							? { ...p, quiz: { ...p.quiz, done: true, score, wrongTags, wrongQuestions, questions: p.quiz.questions.map((q, idx) => ({...q, grade: quizAnswers[idx] === q.answer ? 'correct' : 'incorrect'})) } }
 							: p
 					), stats: newStats };
 				})()
