@@ -45,17 +45,17 @@
     let branchError = $state('');
     let branchSuccess = $state('');
 
-    async function branchFromIncorrectTags(event) {
+    async function generateAdaptivePaths(event) {
         event?.preventDefault();
         event?.stopPropagation();
         branchError = '';
         branchSuccess = '';
-        if (!hasIncorrectTags || generatingBranches) {
+        if (generatingBranches) {
             return;
         }
         generatingBranches = true;
         try {
-            const tags = Object.keys(incorrectTagMap);
+            const tags = hasIncorrectTags ? Object.keys(incorrectTagMap) : [];
             const response = await fetch('/private/dash/api/generate-branches/', {
                 method: 'POST',
                 headers: {
@@ -75,7 +75,7 @@
             const data = await response.json();
             const newBranches = Array.isArray(data?.branches) ? data.branches.filter(Boolean) : [];
             if (newBranches.length === 0) {
-                branchError = 'No remediation branches returned.';
+                branchError = 'No adaptive branches returned.';
                 return;
             }
             const updatedStudies = $StudiesStore.filter((s) => s && s.id).map((s) =>
@@ -99,7 +99,7 @@
             branchSuccess = `${newBranches.length} new ${newBranches.length === 1 ? 'branch' : 'branches'} added.`;
         } catch (error) {
             console.error('Error generating branches:', error);
-            branchError = 'Failed to create remediation branch.';
+            branchError = 'Failed to create adaptive branch.';
         } finally {
             generatingBranches = false;
         }
@@ -110,14 +110,24 @@
 	<h3 class="text-xl font-medium">{path.name}</h3>
 	<p class="text-gray-700 mb-2">{path.description}</p>
 	<p class="text-sm text-gray-500">Status: <Badge variant={path.done ? 'default' : 'outline'}>{path.done ? 'Completed' : 'Pending'}</Badge></p>
-    {#if path.prework && path.prework.title}
-        <p class="text-sm text-gray-500 mt-2">Prework: {path.prework.title}</p>
+
+    {#if path.done}
+    <Button class="mt-2 cursor-pointer" variant="secondary" onclick={generateAdaptivePaths} disabled={generatingBranches}>
+        {generatingBranches ? 'Generating...' : 'Generate Adaptive Learning Paths'}
+    </Button>
+    <p class="text-xs">It will create personalized learning paths based on your progress and performance.</p>
+    {#if branchError}
+        <p class="text-xs text-red-700 mt-1">{branchError}</p>
     {/if}
+    {#if branchSuccess}
+        <p class="text-xs text-green-700 mt-1">{branchSuccess}</p>
+    {/if}
+    {/if}
+
 </a>
 
 {#if path.branches && path.branches.length > 0}
     <div class="mt-4 ml-4 border-l-2 border-gray-300 pl-4">
-        <h4 class="text-lg font-medium mb-2">Branches:</h4>
         {#each path.branches as branch, branchIndex}
             <div class="block border rounded-lg p-3 mb-2 bg-gray-50 hover:bg-gray-100 transition-colors {branch.done ? 'bg-green-50 border-green-200' : ''}">
                 <h5 class="text-md font-medium">{branch.name}</h5>
